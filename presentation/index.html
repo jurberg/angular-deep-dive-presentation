@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+
+    <title>AngularJS Deep Dive</title>
+
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <link rel="stylesheet" href="css/reveal.css">
+    <link rel="stylesheet" href="css/theme/simple.css" id="theme">
+
+    <!-- For syntax highlighting -->
+    <link rel="stylesheet" href="css/sunburst.css">
+
+    <!-- If the query includes 'print-pdf', use the PDF print sheet -->
+    <script>
+        document.write('<link rel="stylesheet" href="css/print/' + ( window.location.search.match(/print-pdf/gi) ? 'pdf' : 'paper' ) + '.css" type="text/css" media="print">');
+    </script>
+
+    <link rel="stylesheet" href="css/styles.css">
+
+    <!--[if lt IE 9]>
+    <script src="js/html5shiv.js"></script>
+    <![endif]-->
+</head>
+
+<body>
+<div class="reveal">
+
+    <div class="slides">
+
+        <section data-background-transition="slide">
+            <div style="float: left;">
+                <img src="img/angular.png"/>
+            </div>
+            <div style="float: right;">
+                <h2>AngularJS</h2>
+                <h2>Deep Dive</h2>
+                <p>
+                    <br/><br/>
+                    <small>Created by John Urberg</small><br>
+                    <small>Application Architect @Lifetouch</small><br>
+                    <small>@jurberg / jurberg.github.io</small>
+                </p>
+            </div>
+        </section>
+
+        <section>
+            <h3>What I cannot create, I do not understand.</h3>
+            <br/>
+            <a href="http://en.wikipedia.org/wiki/Richard_Feynman">Richard Feynman</a>
+        </section>
+
+        <section>
+            <h3>Build Your Own AngularJS<h3/>
+            <br/>
+            <a href="http://teropa.info/build-your-own-angular">Tero Parviainen</a>
+        </section>
+
+        <section>
+            <img src="img/angular_diagram.png" style="width: 60%; height: 60%;"/>
+            <br/>
+            <small>Courtesy&nbsp;<a href="https://mscblogs.blob.core.windows.net/media/dwahlin/Media/image_thumb_3DE5D87B.png">Dan Wahlin</a></small>
+        </section>
+
+        <section>
+            <img src="img/tutorial_02.png" style="width: 160%; height: 160%;"/>
+            <small><a href="https://docs.angularjs.org/tutorial/step_02">*https://docs.angularjs.org/tutorial/step_02</a></small>
+        </section>
+
+        <section>
+            <h2>Scope</h2>
+            <br/>
+            <ul>
+                <li>Scope is an object that refers to the application model</li>
+                <li>It is an execution context for expressions</li>
+                <li>Scopes are arranged in hierarchical structure which mimic the DOM structure of the application</li>
+                <li>Scopes can watch expressions and propagate events</li>
+            </ul>
+        </section>
+
+        <section>
+            <p>$watch observes model mutations</p>
+            <br/>
+            <pre><code class="javascript">var scope = new Scope();
+scope.someValue = 'a';
+scope.counter = 0;
+
+scope.$watch(
+  function(scope) { return scope.someValue; },
+  function(newVal, oldVal, scope) { scope.counter++; }
+);</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">expect(scope.counter).toBe(0);
+
+scope.$digest();
+expect(scope.counter).toBe(1);
+
+scope.$digest();
+expect(scope.counter).toBe(1);
+
+scope.someValue = 'b';
+expect(scope.counter).toBe(1);
+
+scope.$digest();
+expect(scope.counter).toBe(2);</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">function Scope() {
+  this.$$watchers = [];
+}
+
+Scope.prototype.$watch = function(watchFn, listenerFn) {
+  var watcher = {
+    watchFn: watchFn,
+    listenerFn: listenerFn || function() {}
+  };
+  this.$$watchers.unshift(watcher);
+};</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">Scope.prototype.$digest = function() {
+  var dirty = false;
+  this.$$watchers.forEach(function(watcher) {
+    var newValue = watcher.watchFn(this),
+        oldValue = watcher.last;
+    if (newValue !== oldValue) {
+      dirty = true;
+      watcher.last = newValue;
+      watcher.listenerFn(newValue, oldValue, this);
+    }
+  }, this);
+  return dirty;
+};</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">Scope.prototype.$digest = function() {
+  var ttl = 10,
+      dirty = false;
+  do {
+    dirty = this.$$digestOnce();
+    if (dirty && !(ttl--)) {
+      throw "10 digest iterations reached";
+    }
+  } while (dirty);
+};</code></pre>
+        </section>
+
+        <section>
+            <p>$apply propagates any model changes from outside of Angular</p>
+            <pre><code class="javascript">scope.aValue = 'someValue';
+scope.counter = 0;
+
+scope.$watch(
+  function(scope) { return scope.aValue; },
+  function(newVal, oldVal, scope) { scope.counter++; }
+);
+
+scope.$digest();
+expect(scope.counter).toBe(1);
+
+scope.$apply(function(scope) {
+  scope.aValue = 'someOtherValue';
+});
+expect(scope.counter).toBe(2);</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">Scope.prototype.$eval = function(expr, locals) {
+  return expr(this, locals);
+};
+
+Scope.prototype.$apply = function(expr) {
+  try {
+    return this.$eval(expr);
+  } finally {
+    this.$digest();
+  }
+};</code></pre>
+        </section>
+
+        <section>
+            <h3>Scopes can be nested</h3>
+            <br/>
+            <ul>
+                <li>Limits access to the properties of application components</li>
+                <li>Provides access to shared model properties</li>
+                <li>Nested scopes are either "child scopes" or "isolate scopes"</li>
+            </ul>
+        </section>
+
+        <section>
+            <ul>
+                <li>A "child scope" inherits properties from its parent scope</li>
+                <li>An "isolate scope" does not</li>
+            </ul>
+        </section>
+
+        <section>
+            <pre><code class="javascript">function Scope() {
+  this.$$watchers = [];
+  this.$root = this;
+  this.$$children = [];
+}</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">Scope.prototype.$new = function(isolated, parent) {
+  var child;
+  parent = parent || this;
+  if (isolated) {
+    child = new Scope();
+    child.$root = parent.$root;
+  } else {
+    var ChildScope = function() {};
+    ChildScope.prototype = this;
+    child = new ChildScope();
+  }
+  parent.$$children.push(child);
+  child.$$watchers = [];
+  child.$$children = [];
+  child.$parent = parent;
+  return child;
+};</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">Scope.prototype.$$everyScope = function(fn) {
+  if (fn(this)) {
+    return this.$$children.every(function (child) {
+      return child.$$everyScope(fn);
+    });
+  } else {
+    return false;
+  }
+};</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">Scope.prototype.$$digestOnce = function() {
+  var newValue, oldValue, dirty;
+  this.$$everyScope(function(scope) {
+    scope.$$watchers.forEach(function(watcher) {
+      if (watcher) {
+        newValue = watcher.watchFn(scope);
+        oldValue = watcher.last;
+        if (newValue !=== oldValue) {
+          watcher.last = newValue;
+          watcher.listenerFn(newValue, oldValue, scope);
+          dirty = true;
+        }
+      }
+    });
+  });
+  return dirty;
+};</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">Scope.prototype.$apply = function(expr) {
+  try {
+    return this.$eval(expr);
+  } finally {
+    this.$root.$digest();
+  }
+};</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">Scope.prototype.$destroy = function() {
+  if (this === this.$$root) {
+    return;
+  }
+  var siblings = this.$parent.$$children;
+  var indexOfThis = siblings.indexOf(this);
+  if (indexOfThis >= 0) {
+    siblings.splice(indexOfThis, 1);
+  }
+};</code></pre>
+        </section>
+
+        <section>
+            <h2>Scope Events</h2>
+        </section>
+
+        <section>
+            <pre><code class="javascript">
+            </code></pre>
+        </section>
+
+        <section>
+            <h2>Questions</h2>
+        </section>
+
+        <section>
+            <h3>Thanks</h3>
+            <br><br>
+            <p>https://github.com/jurberg/angular-deep-dive-presentation</p>
+        </section>
+
+    </div>
+</div>
+
+<script src="js/head.min.js"></script>
+<script src="js/reveal.js"></script>
+<script src="js/jquery.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
