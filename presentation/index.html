@@ -57,6 +57,12 @@
         </section>
 
         <section>
+            <h3>...the three great virtues of a programmer: laziness, impatience, and hubris.</h3>
+            <br/>
+            <a href="http://c2.com/cgi/wiki?LazinessImpatienceHubris ">LarryWall</a>
+        </section>
+
+        <section>
             <h3>Build Your Own AngularJS<h3/>
             <br/>
             <a href="http://teropa.info/build-your-own-angular">Tero Parviainen</a>
@@ -75,12 +81,14 @@
 
         <section>
             <h2>Scope</h2>
-            <br/>
+        </section>
+
+        <section>
             <ul>
-                <li>Scope is an object that refers to the application model</li>
-                <li>It is an execution context for expressions</li>
-                <li>Scopes are arranged in hierarchical structure which mimic the DOM structure of the application</li>
-                <li>Scopes can watch expressions and propagate events</li>
+                <li>Object that refers to the application model</li>
+                <li>An execution context for expressions</li>
+                <li>Arranged in hierarchical structure which mimic the DOM</li>
+                <li>Watch expressions and propagate events</li>
             </ul>
         </section>
 
@@ -128,7 +136,7 @@ Scope.prototype.$watch = function(watchFn, listenerFn) {
         </section>
 
         <section>
-            <pre><code class="javascript">Scope.prototype.$digest = function() {
+            <pre><code class="javascript">Scope.prototype.$digestOnce = function() {
   var dirty = false;
   this.$$watchers.forEach(function(watcher) {
     var newValue = watcher.watchFn(this),
@@ -207,6 +215,17 @@ Scope.prototype.$apply = function(expr) {
         </section>
 
         <section>
+            <pre><code class="javascript">var parent = new Scope();
+parent.pValue = [1, 2, 3];
+
+var child = parent.$new();
+child.cValue = [1, 2, 3];
+
+expect(child.pValue).toEqual([1, 2, 3]);
+expect(parent.cValue).toBeUndefined();</code></pre>
+        </section>
+
+        <section>
             <pre><code class="javascript">function Scope() {
   this.$$watchers = [];
   this.$root = this;
@@ -237,7 +256,7 @@ Scope.prototype.$apply = function(expr) {
         <section>
             <pre><code class="javascript">Scope.prototype.$$everyScope = function(fn) {
   if (fn(this)) {
-    return this.$$children.every(function (child) {
+    return this.$$children.every(function(child) {
       return child.$$everyScope(fn);
     });
   } else {
@@ -291,6 +310,76 @@ Scope.prototype.$apply = function(expr) {
 
         <section>
             <h2>Scope Events</h2>
+        </section>
+
+        <section>
+            <pre><code class="javascript">function Scope() {
+  this.$$watchers = [];
+  this.$root = this;
+  this.$$children = [];
+  this.$$listeners = {};
+}</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">Scope.prototype.$on = function(eventName, listener) {
+  var listeners = this.$$listeners[eventName];
+  if (!listeners) {
+    this.$$listeners[eventName] = listeners = [];
+  }
+  listeners.push(listener);
+};</code></pre>
+        </section>
+
+        <section>
+            <p>$emit - Dispatches event <b>upward</b> thru the scope hierarchy</p>
+            <pre><code class="javascript">Scope.prototype.$emit = function(eventName) {
+  var event = {name: eventName};
+  var listenerArgs = [event].concat(_.rest(arguments));
+  var scope = this;
+  do {
+    scope.$$fireEventOnScope(eventName, listenerArgs);
+    scope = scope.$parent;
+  } while (scope);
+  return event;
+};</code></pre>
+        </section>
+
+        <section>
+            <p>$broadcast - Dispatches event <b>downward</b> to all child scopes</p>
+            <pre><code class="javascript">Scope.prototype.$broadcast = function(eventName) {
+  var event = {name: eventName};
+  var listenerArgs = [event].concat(_.rest(arguments));
+  this.$$everyScope(function(scope) {
+    scope.$$fireEventOnScope(eventName, listenerArgs);
+    return true;
+  });
+  return event;
+};</code></pre>
+        </section>
+
+        <section>
+            <h2>Parse</h2>
+            <br/>
+            <p>Converts Angular expression into a function</p>
+        </section>
+
+
+        <section>
+            <pre><code class="javascript">var getter = $parse('user.name');
+var setter = getter.assign;
+var context = {user:{name:'angular'}};
+var locals = {user:{name:'local'}};
+
+expect(getter(context)).toEqual('angular');
+setter(context, 'newValue');
+expect(context.user.name).toEqual('newValue');
+expect(getter(context, locals)).toEqual('local');</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">
+            </code></pre>
         </section>
 
         <section>
