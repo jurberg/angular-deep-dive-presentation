@@ -364,6 +364,9 @@ expect(parent.cValue).toBeUndefined();</code></pre>
             <p>Converts Angular expression into a function</p>
         </section>
 
+        <section>
+            <p>Only allows access to scope and locals</p>
+        </section>
 
         <section>
             <pre><code class="javascript">var getter = $parse('user.name');
@@ -378,8 +381,37 @@ expect(getter(context, locals)).toEqual('local');</code></pre>
         </section>
 
         <section>
-            <pre><code class="javascript">
-            </code></pre>
+            <h3>One Time Binding</h3>
+            <br/>
+            <ul>
+                <li>Expression starts with ::</li>
+                <li>Scope $watch is evaluated</li>
+                <li>If new value is not undefined, schedule task to deregister listener</li>
+            </ul>
+        </section>
+
+        <section>
+            <pre><code class="javascript">function oneTimeWatchDelegate(scope, listenerFn, valueEq, watchFn) {
+    var unwatch = scope.$watch(function() {
+        return watchFn(scope);
+    }, function(newValue, oldValue, scope) {
+        if (_.isFunction(listenerFn)) {
+            listenerFn.apply(this, arguments);
+        }
+        if (!_.isUndefined(newValue)) {
+            scope.$$postDigest(function() {
+                if (!_.isUndefined(newValue)) {
+                    unwatch();
+                }
+            });
+        }
+    }, valueEq);
+    return unwatch;
+}</code></pre>
+        </section>
+
+        <section>
+            <h2>Modules</h2>
         </section>
 
         <section>
