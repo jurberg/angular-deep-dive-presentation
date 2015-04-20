@@ -86,9 +86,10 @@
         <section>
             <ul>
                 <li>Object that refers to the application model</li>
-                <li>An execution context for expressions</li>
-                <li>Arranged in hierarchical structure which mimic the DOM</li>
-                <li>Watch expressions and propagate events</li>
+                <li class="fragment">An execution context for expressions</li>
+                <li class="fragment">Arranged in hierarchical structure which mimic the DOM</li>
+                <li class="fragment">Watch expressions</li>
+                <li class="fragment">Propagate events</li>
             </ul>
         </section>
 
@@ -359,13 +360,33 @@ expect(parent.cValue).toBeUndefined();</code></pre>
         </section>
 
         <section>
+            <h3>Other Scope Features</h3>
+            <br/>
+            <ul>
+                <li>Watching Collections</li>
+                <li>Watching a Group of Expressions</li>
+                <li>Async Evaluation and Application</li>
+                <li>Post Digest Callbacks</li>
+            </ul>
+        </section>
+
+        <section>
             <h2>Parse</h2>
             <br/>
             <p>Converts Angular expression into a function</p>
         </section>
 
         <section>
-            <p>Only allows access to scope and locals</p>
+            <ul>
+                <li>A custom Lexer and Parser</li>
+                <li class="fragment">Only allows access to context (scope) and locals</li>
+                <li class="fragment">Cannot access window or DOM unless on the scope</li>
+                <li class="fragment">Includes basic security checks to avoid "evil" code</li>
+            </ul>
+        </section>
+
+        <section>
+            <pre><code class="javascript">{}.toString.constructor('alert("evil JS code")')</code></pre>
         </section>
 
         <section>
@@ -385,33 +406,260 @@ expect(getter(context, locals)).toEqual('local');</code></pre>
             <br/>
             <ul>
                 <li>Expression starts with ::</li>
-                <li>Scope $watch is evaluated</li>
-                <li>If new value is not undefined, schedule task to deregister listener</li>
+                <li>Adds a Scope $watch listener</li>
+                <li>Once value is defined, listener is removed</li>
             </ul>
         </section>
 
         <section>
-            <pre><code class="javascript">function oneTimeWatchDelegate(scope, listenerFn, valueEq, watchFn) {
-    var unwatch = scope.$watch(function() {
-        return watchFn(scope);
-    }, function(newValue, oldValue, scope) {
-        if (_.isFunction(listenerFn)) {
-            listenerFn.apply(this, arguments);
+            <pre><code class="javascript">function oneTimeWatchDelegate(scope, listenerFn, watchFn) {
+  var lastValue, unwatch = scope.$watch(function() {
+    return watchFn(scope);
+  }, function(newValue, oldValue, scope) {
+    lastValue = newValue;
+    if (_.isFunction(listenerFn)) {
+      listenerFn.apply(this, arguments);
+    }
+    if (!_.isUndefined(lastValue)) {
+      scope.$$postDigest(function() {
+        if (!_.isUndefined(lastValue)) {
+          unwatch();
         }
-        if (!_.isUndefined(newValue)) {
-            scope.$$postDigest(function() {
-                if (!_.isUndefined(newValue)) {
-                    unwatch();
-                }
-            });
-        }
-    }, valueEq);
-    return unwatch;
+      });
+    }
+  });
+  return unwatch;
 }</code></pre>
         </section>
 
         <section>
             <h2>Modules</h2>
+            <br/>
+            <p>A container for the different parts of your app</p>
+        </section>
+
+        <section>
+            <p>An angular object is created on window</p>
+            <pre><code class="javascript">function setupModuleLoader(window) {
+
+  var ensure = function(obj, name, factory) {
+    return obj[name] || (obj[name] = factory());
+  };
+
+  var angular = ensure(window, 'angular', Object);
+
+}</code></pre>
+        </section>
+
+        <section>
+            <p>Module function to either create or get a module</p>
+            <pre><code class="javascript">ensure(angular, 'module', function() {
+  var modules = {};
+  return function(name, requires) {
+    if (requires) {
+      return createModule(name, requires, modules);
+    } else {
+       return getModule(name, modules);
+    }
+  };
+});</code></pre>
+        </section>
+
+        <section>
+            <p>Get a module</p>
+            <pre><code class="javascript"> var getModule = function(name, modules) {
+  if (modules.hasOwnProperty(name)) {
+    return modules[name];
+  } else {
+    throw 'Module ' + name + ' is not available.';
+  }
+};</code></pre>
+        </section>
+
+        <section>
+            <p>Create a module</p>
+            <pre><code class="javascript">var createModule = function(name, requires, modules) {
+  if (name === 'hasOwnProperty') {
+    throw 'hasOwnProperty is not a valid module name';
+  }
+  var invokeQueue = [];
+  var moduleInstance = {
+    name: name,
+    requires: requires,
+    _invokeQueue: invokeQueue
+  };
+  modules[name] = moduleInstance;
+  return moduleInstance;
+};</code></pre>
+        </section>
+
+        <section>
+            <h2>$injector</h2>
+        </section>
+
+        <section>
+            <ul>
+                <li>Retrieves object instances as defined by provider
+                <li class="fragment">Instantiates types</li>
+                <li class="fragment">Invokes methods</li>
+                <li class="fragment">Loads modules</li>
+            </ul>
+        </section>
+
+        <section>
+            <pre><code class="javascript">function createInjector(modulesToLoad) {
+  var cache = {};
+  var loadedModules = {};
+  var $provide = {/* more to come... */};</code></pre>
+        </section>
+
+
+        <section>
+            <pre><code class="javascript">_.forEach(modulesToLoad, function loadModule(name) {
+    if (!loadedModules.hasOwnProperty(name)) {
+      loadedModules[name] = true;
+      var module = angular.module(name);
+      _.forEach(module.requires, loadModule);
+      _.forEach(module._invokeQueue, function(iArgs) {
+        var method = iArgs[0];
+        var args = iArgs[1];
+        $provide[method].apply($provide, args);
+      });
+    }
+  });</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">
+  return {
+    has: function(key) {
+      return cache.hasOwnProperty(key);
+    },
+    get: function(key) {
+      return cache[key];
+    }
+  };
+}</code></pre>
+        </section>
+
+        <section>
+            <p>Constants</p>
+            <pre><code class="javascript">var module = angular.module('myModule', []);
+module.constant('aConstant', 42);
+
+var injector = createInjector(['myModule']);
+expect(injector.has('aConstant')).toBe(true);
+expect(injector.get('aConstant')).toBe(42);</code></pre>
+        </section>
+
+        <section>
+            <p>Constants</p>
+            <pre><code class="javascript">// module.js
+var moduleInstance = {
+  constant: function(key, value) {
+    invokeQueue.push(['constant', [key, value]]);
+  }
+};</code></pre>
+            <pre><code class="javascript">// injector.js
+var $provide = {
+  constant: function(key, value) {
+    cache[key] = value;
+  }
+};</code></pre>
+        </section>
+
+        <section>
+            <p>Annotating Functions</p>
+            <pre><code class="javascript">var fn = function() { };
+fn.$inject = ['a', 'b'];
+
+expect(injector.annotate(fn)).toEqual(['a', 'b']);
+
+var fn2 = ['a', 'b', function() { }];
+
+expect(injector.annotate(fn2)).toEqual(['a', 'b']);
+
+var fn3 = function(a, /*b,*/ c) { };
+
+expect(injector.annotate(fn3)).toEqual(['a', 'c']);</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">function annotate(fn) {
+  if (_.isArray(fn)) {
+    return fn.slice(0, fn.length - 1);
+  } else if (fn.$inject) {
+    return fn.$inject;
+  } else if (!fn.length) {
+    return [];
+  } else {
+    var source = fn.toString().replace(STRIP_COMMENTS, '');
+    var argDeclaration = source.match(FN_ARGS);
+    return _.map(argDeclaration[1].split(','), function(argName) {
+        return argName.match(FN_ARG)[2];
+    });
+  }
+}</code></pre>
+        </section>
+
+        <section>
+            <p>Invoke with Injection</p>
+            <pre><code class="javascript">var module = angular.module('myModule', []);
+module.constant('a', 1);
+module.constant('b', 2);
+var injector = createInjector(['myModule']);
+
+var fn = ['a', 'b',
+  function(one, two) { return one + two; }];
+
+expect(injector.invoke(fn)).toBe(3);</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">function invoke(fn, self, locals) {
+  var args = _.map(annotate(fn), function(token) {
+    if (_.isString(token)) {
+      return locals && locals.hasOwnProperty(token) ?
+        locals[token] : cache[token];
+    } else {
+      throw 'Incorrect injection token!';
+    }
+  });
+  if (_.isArray(fn)) {
+    fn = _.last(fn);
+  }
+  return fn.apply(self, args);
+}</code></pre>
+        </section>
+
+        <section>
+            <p>Instatiating with Injection</p>
+            <pre><code class="javascript">var module = angular.module('myModule', []);
+module.constant('a', 1);
+module.constant('b', 2);
+var injector = createInjector(['myModule']);
+
+function Type(one, two) {
+  this.result = one + two;
+}
+
+var instance = injector.instantiate(['a', 'b', Type]);
+expect(instance.result).toBe(3);</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">function instantiate(Type, locals) {
+  var UnwrappedType = _.isArray(Type) ?
+    _.last(Type) : Type;
+  var instance = Object.create(UnwrappedType.prototype);
+  invoke(Type, instance, locals);
+  return instance;
+}</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">
+            </code></pre>
         </section>
 
         <section>
