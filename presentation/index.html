@@ -658,6 +658,124 @@ expect(instance.result).toBe(3);</code></pre>
         </section>
 
         <section>
+            <p>Providers</p>
+            <pre><code class="javascript">var module = angular.module('myModule', []);
+module.constant('a', 1);
+module.provider('b', {
+  $get: function(a) {
+    return a + 2;
+  }
+});
+
+var injector = createInjector(['myModule']);
+
+expect(injector.get('b')).toBe(3);</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">providerCache.$provide = {
+  constant: function(key, value) {
+    instanceCache[key] = value;
+  },
+  provider: function(key, provider) {
+    if (_.isFunction(provider)) {
+      provider = instantiate(provider);
+    }
+    providerCache[key + 'Provider'] = provider;
+  }
+};</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">function getService(name) {
+  if (instanceCache.hasOwnProperty(name)) {
+    return instanceCache[name];
+  } else if (
+     providerCache.hasOwnProperty(name + 'Provider')) {
+    var provider = providerCache[name + 'Provider'];
+    var instance = instanceCache[name] =
+                invoke(provider.$get, provider);
+    return instance;
+  }
+}</code></pre>
+        </section>
+
+        <section>
+            <p>Two Injectors</p>
+            <pre><code class="javascript">providerCache.$injector =
+  createInternalInjector(providerCache, function() {
+    throw 'Unknown provider: '+path.join(' <- ');
+  });
+
+instanceCache.$injector =
+  createInternalInjector(instanceCache, function(name) {
+    var provider = providerInjector.get(name + 'Provider');
+    return instanceInjector.invoke(provider.$get, provider);
+  });</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">function createInternalInjector(cache, factoryFn) {
+  function getService(name) {
+    if (cache.hasOwnProperty(name)) {
+      return cache[name];
+    } else {
+      return (cache[name] = factoryFn(name));
+    }
+  }
+  return {
+    has: function(name) { ... },
+    get: getService,
+    annotate: annotate,
+    invoke: invoke,
+    instantiate: instantiate
+  };
+}</code></pre>
+        </section>
+
+        <section>
+            <p>Config Blocks</p>
+            <pre><code class="javascript">module.config(function($provide) {
+  $provide.constant('a', 42);
+});
+
+var injector = createInjector(['myModule']);
+
+expect(injector.get('a')).toBe(42);</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">// loader.js
+var moduleInstance = {
+  constant: invokeLater('$provide', 'constant',
+                'unshift'),
+  provider: invokeLater('$provide', 'provider'),
+  config: invokeLater('$injector', 'invoke',
+                'push', configBlocks),
+  _invokeQueue: invokeQueue,
+  _configBlocks: configBlocks
+};</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">// injector.js
+_.forEach(modulesToLoad, function loadModule(moduleName) {
+  if (!loadedModules.hasOwnProperty(moduleName)) {
+    loadedModules[moduleName] = true;
+    var module = angular.module(moduleName);
+    _.forEach(module.requires, loadModule);
+    runInvokeQueue(module._invokeQueue);
+    runInvokeQueue(module._configBlocks);
+  }
+});</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">
+            </code></pre>
+        </section>
+
+        <section>
             <pre><code class="javascript">
             </code></pre>
         </section>
