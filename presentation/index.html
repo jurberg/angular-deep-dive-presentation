@@ -371,12 +371,6 @@ expect(parent.cValue).toBeUndefined();</code></pre>
         </section>
 
         <section>
-            <h3>Code!</h3>
-            <br/>
-            <p>rootScope.js</p>
-        </section>
-
-        <section>
             <h2>Parse</h2>
             <br/>
             <p>Converts Angular expression into a function</p>
@@ -436,12 +430,6 @@ expect(getter(context, locals)).toEqual('local');</code></pre>
   });
   return unwatch;
 }</code></pre>
-        </section>
-
-        <section>
-            <h3>Code!</h3>
-            <br/>
-            <p>parse.js</p>
         </section>
 
         <section>
@@ -714,12 +702,12 @@ expect(injector.get('b')).toBe(3);</code></pre>
 
         <section>
             <p>Two Injectors</p>
-            <pre><code class="javascript">providerCache.$injector =
+            <pre><code class="javascript">var providerInjector = providerCache.$injector =
   createInternalInjector(providerCache, function() {
     throw 'Unknown provider: '+path.join(' <- ');
   });
 
-instanceCache.$injector =
+var instanceInjector = instanceCache.$injector =
   createInternalInjector(instanceCache, function(name) {
     var provider = providerInjector.get(name + 'Provider');
     return instanceInjector.invoke(provider.$get, provider);
@@ -770,6 +758,18 @@ var moduleInstance = {
         </section>
 
         <section>
+            <pre><code class="javascript">var invokeLater =
+function(service, method, arrayMethod, queue) {
+  return function() {
+    queue = queue || invokeQueue;
+    queue[arrayMethod || 'push'](
+                [service, method, arguments]);
+    return moduleInstance;
+  };
+};</code></pre>
+        </section>
+
+        <section>
             <pre><code class="javascript">// injector.js
 _.forEach(modulesToLoad, function loadModule(moduleName) {
   if (!loadedModules.hasOwnProperty(moduleName)) {
@@ -783,21 +783,18 @@ _.forEach(modulesToLoad, function loadModule(moduleName) {
         </section>
 
         <section>
-            <p>Run Blocks</p>
-            <pre><code class="javascript">// injector.js
-var runBlocks = [];
-_.forEach(modulesToLoad, function loadModule(moduleName) {
-  if (!loadedModules.hasOwnProperty(moduleName)) {
-    // ...
-    runBlocks = runBlocks.concat(module._runBlocks);
-  }
-});
-_.forEach(runBlocks, function(runBlock) {
-  instanceInjector.invoke(runBlock);
-});</code></pre>
+            <pre><code class="javascript">function runInvokeQueue(queue) {
+  _.forEach(queue, function(invokeArgs) {
+    var service = providerInjector.get(invokeArgs[0]);
+    var method = invokeArgs[1];
+    var args = invokeArgs[2];
+    service[method].apply(service, args);
+  });
+}</code></pre>
         </section>
 
         <section>
+            <p>Run Blocks</p>
             <pre><code class="javascript">// loader.js
 var moduleInstance = {
   // ..
@@ -809,6 +806,20 @@ var moduleInstance = {
   _configBlocks: configBlocks,
   _runBlocks: []
 };</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">// injector.js
+var runBlocks = [];
+_.forEach(modulesToLoad, function loadModule(moduleName) {
+  if (!loadedModules.hasOwnProperty(moduleName)) {
+    // ...
+    runBlocks = runBlocks.concat(module._runBlocks);
+  }
+});
+_.forEach(runBlocks, function(runBlock) {
+  instanceInjector.invoke(runBlock);
+});</code></pre>
         </section>
 
         <section>
@@ -880,10 +891,158 @@ providerCache.$provide = {
         </section>
 
         <section>
+            <p>Values</p>
+            <pre><code class="javascript">// injector.js
+providerCache.$provide = {
+  // ...
+  factory: function(key, factoryFn, enforce) {
+    this.provider(key, {
+      $get: enforce === false ? factoryFn :
+                enforceReturnValue(factoryFn)
+    });
+  },
+  value: function(key, value) {
+    this.factory(key, _.constant(value), false);
+  }
+};</code></pre>
+        </section>
+
+        <section>
+            <p>Services</p>
+            <pre><code class="javascript">// injector.js
+providerCache.$provide = {
+  // ...
+  service: function(key, Constructor) {
+    this.factory(key, function() {
+      return instanceInjector.instantiate(Constructor);
+    });
+  }
+};</code></pre>
+        </section>
+
+        <section>
+            <p>Decorators</p>
+            <pre><code class="javascript">var module = angular.module('myModule', []);
+module.factory('aValue', function() {
+  return {};
+});
+module.config(function($provide) {
+  $provide.decorator('aValue', function($delegate) {
+    $delegate.decoratedKey = 42;
+    return $delegate;
+  });
+});
+
+var injector = createInjector(['myModule']);
+
+expect(injector.get('aValue').decoratedKey).toBe(42);</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">// injector.js
+providerCache.$provide = {
+  // ...
+  decorator: function(serviceName, decoratorFn) {
+    var provider = providerInjector.get(
+                serviceName + 'Provider');
+    var original$get = provider.$get;
+    provider.$get = function () {
+      var instance = instanceInjector.invoke(
+                original$get, provider);
+      instanceInjector.invoke(decoratorFn, null,
+                {$delegate: instance});
+      return instance;
+    };
+  }
+}</code></pre>
+        </section>
+
+        <section>
+            <p>Integrate Parser with the Injector</p>
+            <pre><code class="javascript">function parse(expr) {
+  // ...
+}
+
+// becomes:
+
+function $ParseProvider() {
+  this.$get = function() {
+    return function(expr) {
+      // ...
+    };
+  };
+}</code></pre>
+        </section>
+
+        <section>
+            <p>Integrate Scope with the Injector</p>
+            <pre><code class="javascript">function Scope() {
+  // ...
+}
+
+// becomes:
+
+function $RootScopeProvider() {
+  this.$get = ['$parse', function($parse) {
+
+    function Scope() {
+      // ...
+    }
+
+    var $rootScope = new Scope();
+    return $rootScope;
+
+  }];
+}</code></pre>
+        </section>
+
+        <section>
+            <p>Publish an API</p>
+            <pre><code class="javascript">function publishExternalAPI() {
+  'use strict';
+
+  setupModuleLoader(window);
+
+  var ngModule = angular.module('ng', []);
+  ngModule.provider('$parse', $ParseProvider);
+  ngModule.provider('$rootScope', $RootScopeProvider);
+}</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">publishExternalAPI();
+var parse = createInjector(['ng']).get('$parse');</code></pre>
+        </section>
+
+        <section>
             <pre><code class="javascript">
             </code></pre>
         </section>
 
+        <section>
+            <pre><code class="javascript">
+            </code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">
+            </code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">
+            </code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">
+            </code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">
+            </code></pre>
+        </section>
 
         <section>
             <h2>Questions</h2>
