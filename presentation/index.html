@@ -371,6 +371,12 @@ expect(parent.cValue).toBeUndefined();</code></pre>
         </section>
 
         <section>
+            <h3>Code!</h3>
+            <br/>
+            <p>rootScope.js</p>
+        </section>
+
+        <section>
             <h2>Parse</h2>
             <br/>
             <p>Converts Angular expression into a function</p>
@@ -430,6 +436,12 @@ expect(getter(context, locals)).toEqual('local');</code></pre>
   });
   return unwatch;
 }</code></pre>
+        </section>
+
+        <section>
+            <h3>Code!</h3>
+            <br/>
+            <p>parse.js</p>
         </section>
 
         <section>
@@ -999,8 +1011,6 @@ function $RootScopeProvider() {
         <section>
             <p>Publish an API</p>
             <pre><code class="javascript">function publishExternalAPI() {
-  'use strict';
-
   setupModuleLoader(window);
 
   var ngModule = angular.module('ng', []);
@@ -1015,16 +1025,134 @@ var parse = createInjector(['ng']).get('$parse');</code></pre>
         </section>
 
         <section>
-            <pre><code class="javascript">
-            </code></pre>
+            <p>$q and $http</p>
+            <pre><code class="javascript">function publishExternalAPI() {
+  setupModuleLoader(window);
+
+  var ngModule = angular.module('ng', []);
+  ngModule.provider('$parse', $ParseProvider);
+  ngModule.provider('$rootScope', $RootScopeProvider);
+  ngModule.provider('$q', $QProvider);
+  ngModule.provider('$$q', $$QProvider);
+  ngModule.provider('$httpBackend', $HttpBackendProvider);
+  ngModule.provider('$http', $HttpProvider);
+  ngModule.provider('$compile', $CompileProvider);
+
+}</code></pre>
         </section>
 
         <section>
-            <pre><code class="javascript">
-            </code></pre>
+            <p>Promises</p>
+            <pre><code class="javascript">var d = $q.defer();
+var fulfilledSpy = jasmine.createSpy();
+
+d.promise.then(function(v) {
+  var d2 = $q.defer();
+  d2.resolve(v + 1);
+  return d2.promise;
+}).then(function(v) {
+  return v * 2;
+}).then(fulfilledSpy);
+d.resolve(20);
+
+$rootScope.$apply();
+
+expect(fulfilledSpy).toHaveBeenCalledWith(42);</code></pre>
         </section>
 
         <section>
+            <p>'ES6 Style' Promises</p>
+            <pre><code class="javascript">var fulfilledSpy = jasmine.createSpy();
+var rejectedSpy  = jasmine.createSpy();
+
+$q(function(resolve, reject) {
+  reject('fail');
+}).then(fulfilledSpy, rejectedSpy);
+
+$rootScope.$apply();
+
+expect(fulfilledSpy).not.toHaveBeenCalled();
+expect(rejectedSpy).toHaveBeenCalledWith('fail');</code></pre>
+        </section>
+
+        <section>
+            <h3>Code!</h3>
+            <br/>
+            <p>q.js</p>
+        </section>
+
+        <section>
+            <p>$http</p>
+            <pre><code class="javascript">$http.get('https://goo.gl', {
+  params: {q: 42}
+});
+
+expect(requests[0].url).toBe('https://goo.gl?q=42');
+expect(requests[0].method).toBe('GET');</code></pre>
+        </section>
+
+        <section>
+            <h3>Code!</h3>
+            <br/>
+            <p>http.js</p>
+            <p>httpbackend.js</p>
+        </section>
+
+        <section>
+            <p>Directives - The $compile provider</p>
+            <pre><code class="javascript">function $CompileProvider($provide) {
+  var hasDirectives = {};
+  this.directive = function(name, directiveFactory) {
+    if (!hasDirectives.hasOwnProperty(name)) {
+      hasDirectives[name] = [];
+      $provide.factory(name + 'Directive', ['$injector', function($injector) {
+        var factories = hasDirectives[name];
+        return _.map(factories, function(factory) {
+          var directive = $injector.invoke(factory);
+          return directive;
+        });
+      }]);
+    }
+    hasDirectives[name].push(directiveFactory);
+  };
+}</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">var moduleInstance = {
+  directive: invokeLater('$compileProvider', 'directive'),
+};</code></pre>
+            <pre><code class="javascript">ngModule.provider('$compile', $CompileProvider);</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">function $CompileProvider($provide) {
+
+  this.$get = ['$injector', '$rootScope', function($injector, $rootScope) {
+
+    function compile($compileNodes) {
+      compileNodes($compileNodes);
+      return function publicLinkFn(scope) {
+        $compileNodes.data('$scope', scope);
+      };
+    }
+
+    return compile;
+
+  }];
+
+}</code></pre>
+        </section>
+
+
+        <section>
+            <h3>Code!</h3>
+            <br/>
+            <p>compile.js</p>
+        </section>
+
+        <section>
+            <p>Controllers</p>
             <pre><code class="javascript">
             </code></pre>
         </section>
