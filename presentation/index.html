@@ -1153,23 +1153,98 @@ expect(requests[0].method).toBe('GET');</code></pre>
 
         <section>
             <p>Controllers</p>
-            <pre><code class="javascript">
-            </code></pre>
+            <pre><code class="javascript">function $ControllerProvider() {
+  var controllers = {};
+  this.register = function(name, controller) {
+    controllers[name] = controller;
+  };
+  this.$get = ['$injector', function($injector) {
+    return function(name, locals) {
+     var ctrl = controllers[name];
+     return $injector.instantiate(ctrl, locals);
+    };
+  }];
+}</code></pre>
         </section>
 
         <section>
-            <pre><code class="javascript">
-            </code></pre>
+            <pre><code class="javascript">// angular_public.js
+ngModule.provider('$controller', $ControllerProvider);</code></pre>
+            <pre><code class="javascript">// loader.js
+var moduleInstance = {
+  controller: invokeLater('$controllerProvider', 'register')
+}</code></pre>
         </section>
 
         <section>
-            <pre><code class="javascript">
-            </code></pre>
+            <pre><code class="javascript">// compile.js
+function applyDirectivesToNode(...) {
+  //...
+  if (directive.controller) {
+    controllerDirectives = controllerDirectives || {};
+    controllerDirectives[directive.name] = directive;
+  }
+  //...
+}</code></pre>
         </section>
 
         <section>
-            <pre><code class="javascript">
-            </code></pre>
+            <pre><code class="javascript">// compile.js
+function nodeLinkFn(childLinkFn, scope, linkNode) {
+  var $element = $(linkNode);
+  if (controllerDirectives) {
+    _.forEach(controllerDirectives, function(directive, directiveName) {
+      var locals = {
+        $scope: scope,
+        $element: $element,
+        $attrs: attrs
+      };
+      var controllerName = directive.controller;
+      if (controllerName === '@') {
+        controllerName = attrs[directive.name];
+      }
+      $controller(controllerName, locals);
+    });
+  }
+  //...
+}</code></pre>
+        </section>
+
+        <section>
+            <p>ng-controller</p>
+            <pre><code class="javascript">var ngControllerDirective = function() {
+  'use strict';
+
+  return {
+    restrict: 'A',
+    scope: true,
+    controller: '@'
+  };
+};</code></pre>
+            <pre><code class="javascript">// angular_public.js
+ngModule.directive('ngController',ngControllerDirective);</code></pre>
+        </section>
+
+        <section>
+            <h3>Code!</h3>
+            <br/>
+            <p>controller.js</p>
+            <p>ngController.js</p>
+        </section>
+
+        <section>
+            <h3>Lots More</h3>
+            <br/>
+            <p>Templates</p>
+            <p>Filters</p>
+            <p>Routes</p>
+            <p>Locale</p>
+            <p>etc...</p>
+        </section>
+
+        <section>
+            <h3>Check it out Yourself</h3>
+            <a href="https://github.com/angular/angular.js">https://github.com/angular/angular.js</a>
         </section>
 
         <section>
