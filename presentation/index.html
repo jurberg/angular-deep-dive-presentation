@@ -1036,8 +1036,6 @@ var parse = createInjector(['ng']).get('$parse');</code></pre>
   ngModule.provider('$$q', $$QProvider);
   ngModule.provider('$httpBackend', $HttpBackendProvider);
   ngModule.provider('$http', $HttpProvider);
-  ngModule.provider('$compile', $CompileProvider);
-
 }</code></pre>
         </section>
 
@@ -1172,7 +1170,7 @@ expect(requests[0].method).toBe('GET');</code></pre>
 ngModule.provider('$controller', $ControllerProvider);</code></pre>
             <pre><code class="javascript">// loader.js
 var moduleInstance = {
-  controller: invokeLater('$controllerProvider', 'register')
+  controller: invokeLater('$ControllerProvider', 'register')
 }</code></pre>
         </section>
 
