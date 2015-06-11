@@ -1231,6 +1231,91 @@ ngModule.directive('ngController',ngControllerDirective);</code></pre>
         </section>
 
         <section>
+            <h2>Bootstrap</h2>
+        </section>
+
+        <section>
+            <pre><code class="javascript">// angular.suffix
+
+  bindJQuery();
+
+  publishExternalAPI(angular);
+
+  jqLite(document).ready(function() {
+    angularInit(document, bootstrap);
+  });
+
+})(window, document);</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">var ngAttrPrefixes = ['ng-', 'data-ng-', 'ng:', 'x-ng-'];
+
+function angularInit(element, bootstrap) {
+  var appElement,
+  module,
+  config = {};
+
+  // The element `element` has priority over any other element
+  forEach(ngAttrPrefixes, function(prefix) {
+    var name = prefix + 'app';
+
+    if (!appElement && element.hasAttribute && element.hasAttribute(name)) {
+      appElement = element;
+      module = element.getAttribute(name);
+    }
+  });
+</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">// angularInit continued
+forEach(ngAttrPrefixes, function(prefix) {
+  var name = prefix + 'app';
+  var candidate;
+
+
+  if (!appElement &&
+        (candidate = element.querySelector(
+           '[' + name.replace(':', '\\:') + ']'))) {
+    appElement = candidate;
+    module = candidate.getAttribute(name);
+  }
+});</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">// angularInit continued
+  if (appElement) {
+    config.strictDi =
+       getNgAttribute(appElement, "strict-di") !== null;
+    bootstrap(appElement, module ? [module] : [], config);
+  }
+}</code></pre>
+        </section>
+
+        <section>
+            <pre><code class="javascript">function bootstrap(element, modules, config) {
+  element = jqLite(element);
+  modules = modules || [];
+  modules.unshift(['$provide', function($provide) {
+    $provide.value('$rootElement', element);
+  }]);
+  modules.unshift('ng');
+  var injector = createInjector(modules, config.strictDi);
+  injector.invoke(['$rootScope', '$rootElement', '$compile', '$injector',
+     function bootstrapApply(scope, element, compile, injector) {
+       scope.$apply(function() {
+         element.data('$injector', injector);
+         compile(element)(scope);
+       });
+     }]
+  );
+  return injector;
+}</code></pre>
+        </section>
+
+        <section>
             <h3>Lots More</h3>
             <br/>
             <p>Templates</p>
