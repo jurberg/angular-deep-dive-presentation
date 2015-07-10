@@ -44,7 +44,7 @@
                 <p>
                     <br/><br/>
                     <small>Created by John Urberg</small><br>
-                    <small>Application Architect @Lifetouch</small><br>
+                    <small>Systems Architect @Lifetouch</small><br>
                     <small>@jurberg / jurberg.github.io</small>
                 </p>
             </div>
@@ -386,7 +386,7 @@ expect(parent.cValue).toBeUndefined();</code></pre>
             <ul>
                 <li>A custom Lexer and Parser</li>
                 <li class="fragment">Only allows access to context (scope) and locals</li>
-                <li class="fragment">Cannot access window or DOM unless on the scope</li>
+                <li class="fragment">Cannot access window or DOM directly</li>
                 <li class="fragment">Includes basic security checks to avoid "evil" code</li>
             </ul>
         </section>
@@ -499,6 +499,7 @@ expect(getter(context, locals)).toEqual('local');</code></pre>
     name: name,
     requires: requires,
     _invokeQueue: invokeQueue
+    // more to come...
   };
   modules[name] = moduleInstance;
   return moduleInstance;
